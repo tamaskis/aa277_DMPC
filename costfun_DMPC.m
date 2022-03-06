@@ -25,7 +25,7 @@ x2 = xk2(:,1);
 %propogate through the horizon
 for i = 1:m-1
     x1(:,i+1) = f(x1(:,i),u1(:,i),dt);
-    x2(:,i+1) = f(x2(:,1),u2(:,i),dt);
+    x2(:,i+1) = f(x2(:,i),u2(:,i),dt);
 end
 
 %compute cost (summed up over prediction horizon)
