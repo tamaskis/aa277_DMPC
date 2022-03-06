@@ -13,9 +13,9 @@ function J = costfun_DMPC(f,xk1,xk2,Q,R,P,m,u1,u2,dt)
 %       sequence from the previous time step
 %   dt: time step
 
-%check that u and xref have the correct number of elements
-if (length(u) ~= m) || (length(xref) ~= m)
-    error('length(u) ~= m');
+%check that u and x have the correct number of elements
+if (length(u1) ~= m) || (length(u2) ~= m) || (length(xk1) ~= m) || (length(xk2) ~= m)
+    error('length(u,x) ~= m');
 end
 
 %initialize predicted states
