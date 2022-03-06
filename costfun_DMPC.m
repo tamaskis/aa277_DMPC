@@ -14,7 +14,7 @@ function J = costfun_DMPC(f,xk1,xk2,Q,R,P,m,u1,u2,dt)
 %   dt: time step
 
 %check that u and x have the correct number of elements
-if (length(u1) ~= m) || (length(u2) ~= m)
+if (size(u1,2) ~= m) || (size(u2,2) ~= m)
     error('length(u,x) ~= m');
 end
 
