@@ -33,7 +33,7 @@
 %   x_next  - (7×1 double) state vector at next sample time
 %
 %==========================================================================
-function x_next = nonlinear_dynamics(x,u,dt)
+function x_next = nonlinear_dynamics2(x,u,dt)
     
     % unpacks control input
     dvR = u(1);
@@ -53,15 +53,16 @@ function x_next = nonlinear_dynamics(x,u,dt)
     mu = 3.986004415e14;
 
     % mean motion [rad/s]
-    n = sqrt(mu/a^3);
+    n = sqrt(mu/(a)^3);
     
     % changes in orbital elements due to impulse maneuver
     da = (2/n)*dvT;
+    nF = sqrt(mu/(a+da)^3); % Updated n
     dex = (sin(u)/(n*a))*dvR+(2*cos(u)/(n*a))*dvT;
     dey = (-cos(u)/(n*a))*dvR+(2*sin(u)/(n*a))*dvT;
     di = (cos(u)/(n*a))*dvN;
     dOm = (sin(u)/(n*a*sin(i)))*dvN;
-    du = n*dt-(2/(n*a))*dvR-((sin(u)*cot(i))/(n*a))*dvN;
+    du = nF*dt-(2/(n*a))*dvR-((sin(u)*cot(i))/(n*a))*dvN;
 
     % orbital elements at next sample time
     a_next = a+da;
@@ -70,9 +71,6 @@ function x_next = nonlinear_dynamics(x,u,dt)
     i_next = i+di;
     Om_next = Om+dOm;
     u_next = u+du;
-
-    % cumulative expended dV at next sample time
-    dV_next = dV+dvR+dvT+dvN;
 
     % packages state vector at next sample time
     x_next = [a_next;
