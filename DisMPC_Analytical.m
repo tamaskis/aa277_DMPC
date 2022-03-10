@@ -16,7 +16,7 @@ P = N^2*eye(6);    % Terminal state error cost matrix
 % the other angular variables, the optimization weighting should scale it
 % down by the inverse arc length constant for relative weighting.
 Q(1,1) = 0.2*N / (0.0175 * a); 
-P(1,1) = 0.2*N / (0.0175 * a); 
+P(1,1) = 0.2*N / (0.0175 * a);
 
 
 
@@ -24,8 +24,8 @@ P(1,1) = 0.2*N / (0.0175 * a);
 % =========================================================================
 % Set up our spacecraft and reference
 % Elements: [ a, ex, ey, inc, argp, nu ]
-xk1 = [a+25000,  0.002,  0.002, deg2rad(90.05), deg2rad(90.05), 0]'; 
-xk2 = [a-25000, -0.002, -0.002, deg2rad(89.95), deg2rad(89.95), 0]';
+xk1 = [a+25000,  0.002,  0.002, deg2rad(45.05), deg2rad(45.05), 1*pi/180]'; 
+xk2 = [a-25000, -0.002, -0.002, deg2rad(45.00), deg2rad(45.00),-1*pi/180]';
 
 % Setup some arrays for plotting the final results.
 xF1a = [];
@@ -36,25 +36,80 @@ dv1a = [0];
 dv2a = [0];
 
 % Initialize some simulation time
-duration = 12000;
+duration = 86400;
 timeaxis = linspace( 0, duration, (duration/dt)+1 );
 
+% Initialize arrays for run time
+t_runtime = zeros( 1, length(timeaxis)-1 );
+t_runtimesum = zeros( 1, length(timeaxis)-1 );
+
+% Main for loop.
 for k = 0 : 1 : round(duration/dt)
+
+    % Run the main DMPC program
+    tic;
     [xF1, xF2, uF1, uF2] = run_dist_MPC( xk1, xk2, dt, ...
                                          N, Q, R, P, ...
                                          u_lb, u_ub );
+
+    % Update the states in external simulation
     xF1a(:,k+1) = xF1(:,1); % Take only the first element.
     xF2a(:,k+1) = xF2(:,1); % Take only the first element.
     uF1a(:,k+1) = uF1(:,1); % Take only the first element.
     uF2a(:,k+1) = uF2(:,1); % Take only the first element.
     xk1 = nonlinear_dynamics( xF1(:,1), uF1(:,1), dt );
     xk2 = nonlinear_dynamics( xF2(:,1), uF2(:,1), dt );
+    
+    % Update the Delta V values for SC1 and SC2
     dv1 = sum(abs(uF1(:,1)));
     dv1a(end+1) = dv1a(end) + dv1;
     dv2 = sum(abs(uF2(:,1)));
     dv2a(end+1) = dv2a(end) + dv2;
+
+    % Update the run-time
+    t_runtime(k+1) = toc;
+    if k+1 > 1
+        t_runtimesum(k+1) = t_runtimesum(k) + t_runtime(k+1);
+    else
+        t_runtimesum(k+1) = t_runtime(k+1);
+    end
 end
 
+% For distributed MPC, backpropagate the states. This step is not needed
+% for decentralized MPC, where you can simply refer to the states of the 
+% reference from before.
+mu = 3.986004415e14;
+xFR = 0.5 * ( xF1a(:,end) + xF2a(:,end) );
+xFRa = [];
+xFRa(:,1) = xFR;
+nR = -1*sqrt(mu/(xFR(1))^3);
+for k = 1 : 1 : round(duration/dt)
+    xFRa(:,k+1) = xFRa(:,k);
+    xFRa(6,k+1) = xFRa(6,k) + (nR*dt);
+end
+
+% Flip the reference orbit because we backpropagated it
+xFRa = flip(xFRa,2); 
+
+% Loop through all the states again now that we have the final orbit and
+% perform the conversion to RTN states
+RTN_pos1 = [];
+RTN_pos2 = [];
+RTN_vel1 = [];
+RTN_vel2 = [];
+for k = 1 : 1 : round(duration/dt)
+    oe1 = xF1a(:,k);
+    oe2 = xF2a(:,k);
+    oeR = xFRa(:,k);
+    % RTN1 = elements_to_RTN( oeR, oe1 );
+    % RTN2 = elements_to_RTN( oeR, oe2 );
+    RTN1 = elements_to_RTN( oe1, oe2 );
+    RTN2 = RTN1;
+    RTN_pos1(:,k) = RTN1(1:3)';
+    RTN_pos2(:,k) = RTN2(1:3)';
+    RTN_vel1(:,k) = RTN1(4:6)';
+    RTN_vel2(:,k) = RTN2(4:6)';
+end
 
 
 %% Plotting portion of the code.
@@ -67,6 +122,8 @@ grid('on')
 plot( timeaxis, xF2a(1,:), LineWidth=1.25 )
 title('Semi-major axis of SC1 and SC2')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('Semi-major axis (m)')
 
 figure(2) % Eccentricity vector X (unitless)
 plot( timeaxis, xF1a(2,:), LineWidth=1.25 )
@@ -75,6 +132,8 @@ grid('on')
 plot( timeaxis, xF2a(2,:), LineWidth=1.25 )
 title('Eccentricity (X) of SC1 and SC2')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('Eccentricity Vector (X)')
 
 figure(3) % Eccentricity vector Y (unitless)
 plot( timeaxis, xF1a(3,:), LineWidth=1.25 )
@@ -83,22 +142,28 @@ grid('on')
 plot( timeaxis, xF2a(3,:), LineWidth=1.25 )
 title('Eccentricity (Y) of SC1 and SC2')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('Eccentricity Vector (Y)')
 
 figure(4) % Inclination angle (degrees)
 plot( timeaxis, rad2deg( xF1a(4,:)), LineWidth=1.25 )
 hold('on')
 grid('on')
 plot( timeaxis, rad2deg( xF2a(4,:)), LineWidth=1.25 )
-title('Inclination (rad) of SC1 and SC2')
+title('Inclination (deg) of SC1 and SC2')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('Inclination angle (deg)')
 
 figure(5) % Right angle of ascending node (degrees)
 plot( timeaxis, rad2deg( xF1a(5,:)), LineWidth=1.25 )
 hold('on')
 grid('on')
 plot( timeaxis, rad2deg( xF2a(5,:)), LineWidth=1.25 )
-title('RAAN (rad) of SC1 and SC2')
+title('RAAN (deg) of SC1 and SC2')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('RAAN (deg)')
 
 figure(6) % Argument of latitude (degrees)
 plot( timeaxis, rad2deg( xF1a(6,:)), LineWidth=1.25 )
@@ -116,6 +181,8 @@ plot( timeaxis, uF2a', LineWidth=1.25 )
 title('Delta-V Usage each time step')
 legend('SC1-V_R','SC1-V_T','SC1-V_N',...
        'SC2-V_R','SC2-V_T','SC2-V_N')
+xlabel('Time (s)')
+ylabel('\Delta V (m/s)')
 
 figure(8) % Cumulative Delta-V Usage of SC1/2
 plot( timeaxis, dv1a(2:end), LineWidth=1.25 )
@@ -124,6 +191,64 @@ grid('on')
 plot( timeaxis, dv2a(2:end), LineWidth=1.25 )
 title('Cumulative Delta-V Usage in total')
 legend('SC1','SC2')
+xlabel('Time (s)')
+ylabel('\Delta V (m/s)')
+
+figure(9) % RTN Position Plots for SC1
+plot( timeaxis(1:end-1), RTN_pos1(1,:), LineWidth=1.25 )
+hold('on')
+grid('on')
+plot( timeaxis(1:end-1), RTN_pos1(2,:), LineWidth=1.25 )
+plot( timeaxis(1:end-1), RTN_pos1(3,:), LineWidth=1.25 )
+title('RTN Position Plots for SC1 w.r.t. SC2')
+legend('R','T','N');
+xlabel('Time (s)')
+ylabel('Relative Position (m)')
+
+figure(10) % RTN Position Plots for SC2
+plot( timeaxis(1:end-1), RTN_pos2(1,:), LineWidth=1.25 )
+hold('on')
+grid('on')
+plot( timeaxis(1:end-1), RTN_pos2(2,:), LineWidth=1.25 )
+plot( timeaxis(1:end-1), RTN_pos2(3,:), LineWidth=1.25 )
+title('RTN Position Plots for SC1 w.r.t. SC2')
+legend('R','T','N');
+xlabel('Time (s)')
+ylabel('Relative Position (m)')
+
+% 3D Plots look like potatos so I'm going to comment this one out...
+
+% figure(11) % RTN Position Plots
+% plot3( RTN_pos1(1,:), RTN_pos1(2,:), RTN_pos1(3,:), LineWidth=1.25 )
+% hold('on')
+% grid('on')
+% plot3( RTN_pos2(1,:), RTN_pos2(2,:), RTN_pos2(3,:), LineWidth=1.25 )
+% title('RTN Position Plots for SC1 and SC2')
+% legend('SC1','SC2')
+% 
+% figure(12) % RTN Velocity Plots
+% plot3( RTN_vel1(1,:), RTN_vel1(2,:), RTN_vel1(3,:), LineWidth=1.25 )
+% hold('on')
+% grid('on')
+% plot3( RTN_vel2(1,:), RTN_vel2(2,:), RTN_vel2(3,:), LineWidth=1.25 )
+% title('RTN Velocity Plots for SC1 and SC2')
+% legend('SC1','SC2')
+
+% Plot the step run-time.
+figure(13);
+plot( timeaxis, t_runtime, 'Linestyle', 'none', 'Marker', 'o' );
+grid('on');
+title('Distributed MPC Runtime at Each Step');
+xlabel('Simulation Time [s]');
+ylabel('Step Runtime [s]');
+
+% Plot the cumulative run-time.
+figure(14);
+plot( timeaxis, t_runtimesum, 'k--', LineWidth=1.25 );
+grid('on');
+title('Cumulative Distributed MPC Runtime');
+xlabel('Simulation Time [s]');
+ylabel('Cumulative Runtime [s]');
 
 
 
