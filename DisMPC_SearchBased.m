@@ -49,9 +49,9 @@ for jj = 1:length(thorizon)
     end
     
     % Display
-    disp(u1);
-    disp(u2);
-    disp(x0_sc1-x0_sc2);
+    %disp(u1);
+    %disp(u2);
+    %disp(x0_sc1-x0_sc2);
 
     % Update
     x0_sc1 = x1_sc1;
@@ -59,10 +59,98 @@ for jj = 1:length(thorizon)
     
 end
 
+duration = 86400;
+
+timeaxis = linspace( 0, duration, (duration/dt)+1 );
+
+% converts time to hours
+timeaxis = timeaxis/3600;
+
+% converts semi-major axes to kilometers
+x_sc1(1,:) = x_sc1(1,:)/1000;
+x_sc2(1,:) = x_sc2(1,:)/1000;
+
+
+%%
+
 % Get RTN
 RTN_sc2_wrtsc1 = oe2rtnback(x_sc1,x_sc2);
+RTN_sc2_wrtsc1 = RTN_sc2_wrtsc1.';
 
-% Plots
+% converts RTN to km
+RTN_sc2_wrtsc1 = RTN_sc2_wrtsc1/1000;
+
+
+%% Saving data
+
+% time [h]
+t = timeaxis;
+
+% semi-major axes [km]
+a1 = x_sc1(1,:);
+a2 = x_sc2(1,:);
+
+% x-component of eccentricity vector [-]
+ex1 = x_sc1(2,:);
+ex2 = x_sc2(2,:);
+
+% y-component of eccentricity vector [-]
+ey1 = x_sc1(3,:);
+ey2 = x_sc2(3,:);
+
+% inclination [deg]
+i1 = x_sc1(4,:);
+i2 = x_sc2(4,:);
+
+% RAAN [deg]
+Om1 = x_sc1(5,:);
+Om2 = x_sc2(5,:);
+
+% argument of latitude [deg]
+u1 = x_sc1(6,:);
+u2 = x_sc2(6,:);
+
+% control effort [m/s]
+ctrl1 = u_sc1;
+ctrl2 = u_sc2;
+
+% cumulative Delta-V [m/s]
+dV1 = u_sc1_tot;
+dV2 = u_sc2_tot;
+
+% RTN positions [km]
+RTN_2wrt1 = RTN_sc2_wrtsc1;
+
+% trims all arrays so they are same length as for analytical case (only
+% differs by 1 element) and packages them into a structure
+DMPC_numerical.t = t(1:1440);
+DMPC_numerical.a1 = a1(1:1440);
+DMPC_numerical.a2 = a2(1:1440);
+DMPC_numerical.ex1 = ex1(1:1440);
+DMPC_numerical.ex2 = ex2(1:1440);
+DMPC_numerical.ey1 = ey1(1:1440);
+DMPC_numerical.ey2 = ey2(1:1440);
+DMPC_numerical.i1 = i1(1:1440);
+DMPC_numerical.i2 = i2(1:1440);
+DMPC_numerical.Om1 = Om1(1:1440);
+DMPC_numerical.Om2 = Om2(1:1440);
+DMPC_numerical.u1 = u1(1:1440);
+DMPC_numerical.u2 = u2(1:1440);
+DMPC_numerical.ctrl1 = ctrl1(:,1:1440);
+DMPC_numerical.ctrl2 = ctrl2(:,1:1440);
+DMPC_numerical.dV1 = dV1(1:1440);
+DMPC_numerical.dV2 = dV2(1:1440);
+DMPC_numerical.RTN_2wrt1 = RTN_2wrt1(:,1:1440);
+
+% saves simulation data
+save('data/DMPC_numerical.mat','DMPC_numerical');
+
+
+
+
+
+
+%% Plots
 % RTN convergence from reference of final orbit
 fig1 = figure(1);
 plot(thorizon,RTN_sc2_wrtsc1(:,1));
@@ -322,7 +410,8 @@ function RTN_sc2_wrtsc1 = oe2rtnback(x_sc1,x_sc2)
 % Go from chief and deputy to RTN delta
 RTN_sc2_wrtsc1 = zeros(length(x_sc1),3);
 for ii = 1:length(x_sc1)
-    dx_sc2_wrtsc1 = elements_to_RTN_Luke(x_sc1(:,ii),x_sc2(:,ii));
+    %dx_sc2_wrtsc1 = elements_to_RTN_Luke(x_sc1(:,ii),x_sc2(:,ii));
+    dx_sc2_wrtsc1 = elements_to_RTN(x_sc1(:,ii),x_sc2(:,ii));
     RTN_sc2_wrtsc1(ii,:) = dx_sc2_wrtsc1(1:3);
 end
 

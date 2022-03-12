@@ -4,8 +4,8 @@
 
 clc; clear all; close all;
 dt = 60;           % Dynamics time step
-a = 6700000;       % Semi-major axis [m]
-N = 50;            % MPC prediction horizon size
+a = 6725000;       % Semi-major axis [m]
+N = 5;            % MPC prediction horizon size
 u_lb = -3.0;       % ΔV lower bound [m/s]
 u_ub =  3.0;       % ΔV upper bound [m/s]
 Q = 0.1*eye(6);    % State error cost matrix
@@ -111,144 +111,88 @@ for k = 1 : 1 : round(duration/dt)
     RTN_vel2(:,k) = RTN2(4:6)';
 end
 
+% converts time to hours
+timeaxis = timeaxis/3600;
 
-%% Plotting portion of the code.
-% =========================================================================
+% converts semi-major axes to kilometers
+xF1a(1,:) = xF1a(1,:)/1000;
+xF2a(1,:) = xF2a(1,:)/1000;
 
-figure(1) % Semi-major axis (m)
-plot( timeaxis, xF1a(1,:), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, xF2a(1,:), LineWidth=1.25 )
-title('Semi-major axis of SC1 and SC2')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('Semi-major axis (m)')
+% converts angles to degrees
+xF1a(4,:) = xF1a(4,:)*(180/pi);
+xF2a(4,:) = xF2a(4,:)*(180/pi);
+xF1a(5,:) = xF1a(5,:)*(180/pi);
+xF2a(5,:) = xF2a(5,:)*(180/pi);
+xF1a(6,:) = xF1a(6,:)*(180/pi);
+xF2a(6,:) = xF2a(6,:)*(180/pi);
 
-figure(2) % Eccentricity vector X (unitless)
-plot( timeaxis, xF1a(2,:), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, xF2a(2,:), LineWidth=1.25 )
-title('Eccentricity (X) of SC1 and SC2')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('Eccentricity Vector (X)')
+% converts RTN positions to kilometers
+RTN_pos1 = RTN_pos1/1000;
 
-figure(3) % Eccentricity vector Y (unitless)
-plot( timeaxis, xF1a(3,:), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, xF2a(3,:), LineWidth=1.25 )
-title('Eccentricity (Y) of SC1 and SC2')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('Eccentricity Vector (Y)')
 
-figure(4) % Inclination angle (degrees)
-plot( timeaxis, rad2deg( xF1a(4,:)), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, rad2deg( xF2a(4,:)), LineWidth=1.25 )
-title('Inclination (deg) of SC1 and SC2')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('Inclination angle (deg)')
+%% Saving data
 
-figure(5) % Right angle of ascending node (degrees)
-plot( timeaxis, rad2deg( xF1a(5,:)), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, rad2deg( xF2a(5,:)), LineWidth=1.25 )
-title('RAAN (deg) of SC1 and SC2')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('RAAN (deg)')
+% time [h]
+t = timeaxis;
 
-figure(6) % Argument of latitude (degrees)
-plot( timeaxis, rad2deg( xF1a(6,:)), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, rad2deg( xF2a(6,:)), LineWidth=1.25 )
-title('Arg of Latitude (rad) of SC1 and SC2')
-legend('SC1','SC2')
+% semi-major axes [km]
+a1 = xF1a(1,:);
+a2 = xF2a(1,:);
 
-figure(7) % Delta-V Usage of SC1/2 at each time step
-plot( timeaxis, uF1a', LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, uF2a', LineWidth=1.25 )
-title('Delta-V Usage each time step')
-legend('SC1-V_R','SC1-V_T','SC1-V_N',...
-       'SC2-V_R','SC2-V_T','SC2-V_N')
-xlabel('Time (s)')
-ylabel('\Delta V (m/s)')
+% x-component of eccentricity vector [-]
+ex1 = xF1a(2,:);
+ex2 = xF2a(2,:);
 
-figure(8) % Cumulative Delta-V Usage of SC1/2
-plot( timeaxis, dv1a(2:end), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis, dv2a(2:end), LineWidth=1.25 )
-title('Cumulative Delta-V Usage in total')
-legend('SC1','SC2')
-xlabel('Time (s)')
-ylabel('\Delta V (m/s)')
+% y-component of eccentricity vector [-]
+ey1 = xF1a(3,:);
+ey2 = xF2a(3,:);
 
-figure(9) % RTN Position Plots for SC1
-plot( timeaxis(1:end-1), RTN_pos1(1,:), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis(1:end-1), RTN_pos1(2,:), LineWidth=1.25 )
-plot( timeaxis(1:end-1), RTN_pos1(3,:), LineWidth=1.25 )
-title('RTN Position Plots for SC1 w.r.t. SC2')
-legend('R','T','N');
-xlabel('Time (s)')
-ylabel('Relative Position (m)')
+% inclination [deg]
+i1 = xF1a(4,:);
+i2 = xF2a(4,:);
 
-figure(10) % RTN Position Plots for SC2
-plot( timeaxis(1:end-1), RTN_pos2(1,:), LineWidth=1.25 )
-hold('on')
-grid('on')
-plot( timeaxis(1:end-1), RTN_pos2(2,:), LineWidth=1.25 )
-plot( timeaxis(1:end-1), RTN_pos2(3,:), LineWidth=1.25 )
-title('RTN Position Plots for SC1 w.r.t. SC2')
-legend('R','T','N');
-xlabel('Time (s)')
-ylabel('Relative Position (m)')
+% RAAN [deg]
+Om1 = xF1a(5,:);
+Om2 = xF2a(5,:);
 
-% 3D Plots look like potatos so I'm going to comment this one out...
+% argument of latitude [deg]
+u1 = xF1a(6,:);
+u2 = xF2a(6,:);
 
-% figure(11) % RTN Position Plots
-% plot3( RTN_pos1(1,:), RTN_pos1(2,:), RTN_pos1(3,:), LineWidth=1.25 )
-% hold('on')
-% grid('on')
-% plot3( RTN_pos2(1,:), RTN_pos2(2,:), RTN_pos2(3,:), LineWidth=1.25 )
-% title('RTN Position Plots for SC1 and SC2')
-% legend('SC1','SC2')
-% 
-% figure(12) % RTN Velocity Plots
-% plot3( RTN_vel1(1,:), RTN_vel1(2,:), RTN_vel1(3,:), LineWidth=1.25 )
-% hold('on')
-% grid('on')
-% plot3( RTN_vel2(1,:), RTN_vel2(2,:), RTN_vel2(3,:), LineWidth=1.25 )
-% title('RTN Velocity Plots for SC1 and SC2')
-% legend('SC1','SC2')
+% control effort [m/s]
+ctrl1 = uF1a;
+ctrl2 = uF2a;
 
-% Plot the step run-time.
-figure(13);
-plot( timeaxis, t_runtime, 'Linestyle', 'none', 'Marker', 'o' );
-grid('on');
-title('Distributed MPC Runtime at Each Step');
-xlabel('Simulation Time [s]');
-ylabel('Step Runtime [s]');
+% cumulative Delta-V [m/s]
+dV1 = dv1a;
+dV2 = dv2a;
 
-% Plot the cumulative run-time.
-figure(14);
-plot( timeaxis, t_runtimesum, 'k--', LineWidth=1.25 );
-grid('on');
-title('Cumulative Distributed MPC Runtime');
-xlabel('Simulation Time [s]');
-ylabel('Cumulative Runtime [s]');
+% RTN positions [km]
+RTN_2wrt1 = RTN_pos1;
+
+% trims all arrays so they are same length (not sure why they are
+% different?) and packages them into a structure
+DMPC_analytical.t = t(1:1440);
+DMPC_analytical.a1 = a1(1:1440);
+DMPC_analytical.a2 = a2(1:1440);
+DMPC_analytical.ex1 = ex1(1:1440);
+DMPC_analytical.ex2 = ex2(1:1440);
+DMPC_analytical.ey1 = ey1(1:1440);
+DMPC_analytical.ey2 = ey2(1:1440);
+DMPC_analytical.i1 = i1(1:1440);
+DMPC_analytical.i2 = i2(1:1440);
+DMPC_analytical.Om1 = Om1(1:1440);
+DMPC_analytical.Om2 = Om2(1:1440);
+DMPC_analytical.u1 = u1(1:1440);
+DMPC_analytical.u2 = u2(1:1440);
+DMPC_analytical.ctrl1 = ctrl1(:,1:1440);
+DMPC_analytical.ctrl2 = ctrl2(:,1:1440);
+DMPC_analytical.dV1 = dV1(1:1440);
+DMPC_analytical.dV2 = dV2(1:1440);
+DMPC_analytical.RTN_2wrt1 = RTN_2wrt1(:,1:1440);
+
+% saves simulation data
+save('data/DMPC_analytical.mat','DMPC_analytical');
 
 
 
